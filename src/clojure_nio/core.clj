@@ -1,32 +1,39 @@
 (ns clojure-nio.core
   (:require [clojure.string :as string])
-  (:import [java.nio.file FileSystem Files LinkOption Path OpenOption FileSystems]
+  (:import [java.nio.file FileSystem Files LinkOption Path OpenOption FileSystems CopyOption]
            [java.nio.file.attribute FileAttribute PosixFilePermissions]
-           [java.nio.charset StandardCharsets Charset]))
+           [java.nio.charset StandardCharsets Charset]
+           [java.io OutputStream InputStream]))
 
 (defn default-fs []
   (FileSystems/getDefault))
 
+(defmacro varargs-array [type args]
+  `(into-array ~type (or ~args [])))
+
+(defmacro link-opts [args] `(varargs-array LinkOption ~args))
+(defmacro copy-opts [args] `(varargs-array CopyOption ~args))
+(defmacro open-opts [args] `(varargs-array OpenOption ~args))
+(defmacro file-attrs [args] `(varargs-array FileAttribute ~args))
+
+(defn copy [src target & copy-options]
+  (if (instance? Path src)
+    (if (instance? Path target)
+      (Files/copy ^Path src ^Path target (copy-opts copy-options))
+      (Files/copy ^Path src ^OutputStream target))
+    (Files/copy ^InputStream src ^Path target (copy-opts copy-options))))
+
 (defn path [^FileSystem fs ^String path & paths]
-  (.getPath fs path (into-array String (or paths []))))
+  (.getPath fs path (varargs-array String paths)))
 
-(defn exists?
-  ([^Path path]
-   (exists? path []))
-  ([^Path path link-options]
-   (Files/exists path (into-array LinkOption link-options))))
+(defn exists? [^Path path & link-options]
+  (Files/exists path (link-opts link-options)))
 
-(defn file?
-  ([^Path path]
-   (file? path []))
-  ([^Path path link-options]
-   (Files/isRegularFile path (into-array LinkOption link-options))))
+(defn file? [^Path path & link-options]
+  (Files/isRegularFile path (link-opts link-options)))
 
-(defn dir?
-  ([^Path path]
-   (dir? path []))
-  ([^Path path link-options]
-   (Files/isDirectory path (into-array LinkOption link-options))))
+(defn dir? [^Path path & link-options]
+  (Files/isDirectory path (link-opts link-options)))
 
 (defn sym-link? [^Path path]
   (Files/isSymbolicLink path))
@@ -34,26 +41,17 @@
 (defn read-sym-link [^Path path]
   (Files/readSymbolicLink path))
 
-(defn create-dir
-  ([^Path path]
-   (create-dir path []))
-  ([^Path path file-attrs]
-   (Files/createDirectory path (into-array FileAttribute file-attrs))))
+(defn create-dir [^Path path & file-attributes]
+  (Files/createDirectory path (file-attrs file-attributes)))
 
-(defn create-file
-  ([^Path path]
-   (create-file path []))
-  ([^Path path file-attrs]
-   (Files/createFile path (into-array FileAttribute file-attrs))))
+(defn create-file [^Path path & file-attributes]
+  (Files/createFile path (file-attrs file-attributes)))
 
 (defn create-hard-link [^Path link ^Path existing]
   (Files/createLink link existing))
 
-(defn create-sym-link
-  ([^Path link ^Path existing]
-   (create-sym-link link existing []))
-  ([^Path link ^Path existing file-attrs]
-   (Files/createSymbolicLink link existing (into-array FileAttribute file-attrs))))
+(defn create-sym-link [^Path link ^Path existing & file-attributes]
+  (Files/createSymbolicLink link existing (file-attrs file-attributes)))
 
 (defn read-all-lines
   ([^Path path]
@@ -61,47 +59,42 @@
   ([^Path path ^Charset charset]
    (Files/readAllLines path charset)))
 
-(defn write-bytes
-  ([^Path path ^bytes bytes]
-   (write-bytes path bytes []))
-  ([^Path path ^bytes bytes open-options]
-   (Files/write path bytes (into-array OpenOption open-options))))
+(defn write-bytes [^Path path ^bytes bytes & open-options]
+  (Files/write path bytes (open-opts open-options)))
 
 (defn write-lines
   ([^Path path lines]
    (write-lines path lines StandardCharsets/UTF_8))
-  ([^Path path lines ^Charset charset]
-   (write-lines path lines charset []))
-  ([^Path path lines ^Charset charset open-options]
-   (Files/write path lines charset (into-array OpenOption open-options))))
+  ([^Path path lines ^Charset charset & open-options]
+   (Files/write path lines charset (open-opts open-options))))
 
 ;; UTILS
 
 (defn- assoc-implicit-args [node]
   (assoc node
-    :type (cond
-            (:children node) :dir
-            :else :file)))
+         :type (cond
+                 (:children node) :dir
+                 :else :file)))
 
 (defn create-fs-tree! [^FileSystem fs ^String root children]
   (doseq [child-wo-type? children]
     (let [child (if (:type child-wo-type?)
                   child-wo-type?
                   (assoc-implicit-args child-wo-type?))
-          ^Path path (path fs root (:name child))]
+          ^Path my-path (path fs root (:name child))]
       (condp = (:type child)
         :dir (do
-               (create-dir path)
+               (create-dir my-path)
                (create-fs-tree!
                  fs
-                 (str path)
+                 (str my-path)
                  (:children child)))
         :file (do
-                (create-file path)
+                (create-file my-path)
                 (when-let [c (:content child)]
-                  (write-lines path c)))
-        :link (create-hard-link path (path fs (:link-to child)))
-        :sym-link (create-sym-link path (path fs (:link-to child)))
+                  (write-lines my-path c)))
+        :link (create-hard-link my-path (path fs (:link-to child)))
+        :sym-link (create-sym-link my-path (path fs (:link-to child)))
         (throw (ex-info "Illegal type" child))))))
 
 (defn posix-perm-file-attrs [perm-str]
