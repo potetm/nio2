@@ -76,6 +76,18 @@
       (is (= (nio/read-all-lines (nio/path fs "/foo"))
              ["hello, world!"]))))
 
+  ;; this is a better syntax I think
+  [[:my
+    [:path
+     [:to
+      [:file]
+      [:has-content
+       "line 1"
+       "line 2"]]
+     [:empty-dir {:type :dir}]]
+    [:link {:type :sym-link}]]
+   [:hard-link {:type :link, :link-to "/my/path/to/file"}]]
+
   (testing "complex structure"
     (let [s [{:name "my"
               :children

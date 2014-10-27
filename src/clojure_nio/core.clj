@@ -17,11 +17,12 @@
 (defmacro file-attrs [args] `(varargs-array FileAttribute ~args))
 
 (defn copy [src target & copy-options]
-  (if (instance? Path src)
-    (if (instance? Path target)
-      (Files/copy ^Path src ^Path target (copy-opts copy-options))
-      (Files/copy ^Path src ^OutputStream target))
-    (Files/copy ^InputStream src ^Path target (copy-opts copy-options))))
+  (let [^"[Ljava.nio.file.CopyOption;" copy-options (copy-opts copy-options)]
+    (if (instance? Path src)
+      (if (instance? Path target)
+        (Files/copy ^Path src ^Path target copy-options)
+        (Files/copy ^Path src ^OutputStream target))
+      (Files/copy ^InputStream src ^Path target copy-options))))
 
 (defn path [^FileSystem fs ^String path & paths]
   (.getPath fs path (varargs-array String paths)))
@@ -41,8 +42,13 @@
 (defn read-sym-link [^Path path]
   (Files/readSymbolicLink path))
 
+;; CREATE
+
 (defn create-dir [^Path path & file-attributes]
   (Files/createDirectory path (file-attrs file-attributes)))
+
+(defn create-dirs [^Path path & file-attributes]
+  (Files/createDirectories path (file-attrs file-attributes)))
 
 (defn create-file [^Path path & file-attributes]
   (Files/createFile path (file-attrs file-attributes)))
@@ -53,6 +59,12 @@
 (defn create-sym-link [^Path link ^Path existing & file-attributes]
   (Files/createSymbolicLink link existing (file-attrs file-attributes)))
 
+(defn create-tmp-dir
+  ([^String prefix]
+   (Files/createTempDirectory prefix (file-attrs [])))
+  ([^Path dir ^String prefix & file-attributes]
+   (Files/createTempDirectory dir prefix (file-attrs file-attributes))))
+
 (defn read-all-lines
   ([^Path path]
    (read-all-lines path StandardCharsets/UTF_8))
@@ -60,7 +72,8 @@
    (Files/readAllLines path charset)))
 
 (defn write-bytes [^Path path ^bytes bytes & open-options]
-  (Files/write path bytes (open-opts open-options)))
+  (let [^"[Ljava.nio.file.OpenOption;" open-options (open-opts open-options)]
+    (Files/write path bytes open-options)))
 
 (defn write-lines
   ([^Path path lines]
