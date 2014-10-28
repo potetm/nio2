@@ -16,97 +16,80 @@
        (nio/sym-link? link)
        (= (nio/read-sym-link link) link-to)))
 
+;; this is a better syntax I think
+
 (deftest create-fs-test
 
   (testing "a single file"
-    (let [s [{:name "foo"}]
+    (let [s [[:foo]]
           fs (jimfs/create-fs s)]
       (is (existing-file? (nio/path fs "/foo")))))
 
   (testing "two files"
-    (let [s [{:name "foo"}
-             {:name "bar"}]
+    (let [s [[:foo]
+             [:bar]]
           fs (jimfs/create-fs s)]
       (are [result arg] (= result (existing-file? (nio/path fs arg)))
         true "/foo"
         true "/bar")))
 
   (testing "the negative case"
-    (let [s [{:name "foo"}]
+    (let [s [[:foo]]
           fs (jimfs/create-fs s)]
       (is (not (nio/exists? (nio/path fs "/not-exists"))))))
 
   (testing "nesting"
-    (let [my-fs-struct
-          [{:name "foo"
-            :children
-            [{:name "bar"
-              :children
-              [{:name "baz"}]}]}]
+    (let [my-fs-struct [[:foo
+                         [:bar
+                          [:baz]]]]
           fs (jimfs/create-fs my-fs-struct)]
       (is (existing-file? (nio/path fs "/foo/bar/baz")))))
 
   (testing "creating an empty dir"
-    (let [s [{:name "foo"
-              :type :dir}]
+    (let [s [[:foo {:type :dir}]]
           fs (jimfs/create-fs s)]
-      (is (existing-dir? (nio/path fs "/foo")))))
+      (is (nio/dir? (nio/path fs "/foo")))))
 
   (testing "creating a sym link"
-    (let [s [{:name "foo"}
-             {:name "linky"
-              :type :sym-link
-              :link-to "/foo"}]
+    (let [s [[:foo]
+             [:linky {:type :sym-link
+                      :link-to "/foo"}]]
           fs (jimfs/create-fs s)]
       (is (existing-sym-link-to? (nio/path fs "/linky")
                                  (nio/path fs "/foo")))))
 
+  (testing "creating a sym link without a :link-to throws an AssertionError"
+    (let [s [[:foo]
+             [:linky {:type :sym-link}]]]
+      (is (thrown? AssertionError (jimfs/create-fs s)))))
+
   (testing "creating a hard link; notice it must be ordered after its :link-to"
-    (let [s [{:name "foo"}
-             {:name "hardlink"
-              :type :link
-              :link-to "/foo"}]
+    (let [s [[:foo]
+             [:hardlink {:type :link
+                         :link-to "/foo"}]]
           fs (jimfs/create-fs s)]
       (is (existing-file? (nio/path fs "/hardlink")))))
 
+  (testing "creating a sym link without a :link-to throws an AssertionError"
+    (let [s [[:foo]
+             [:hardlink {:type :link}]]]
+      (is (thrown? AssertionError (jimfs/create-fs s)))))
+
   (testing "writing contents"
-    (let [s [{:name "foo"
-              :content ["hello, world!"]}]
+    (let [s [[:foo "hello, world!"]]
           fs (jimfs/create-fs s)]
       (is (= (nio/read-all-lines (nio/path fs "/foo"))
              ["hello, world!"]))))
 
-  ;; this is a better syntax I think
-  [[:my
-    [:path
-     [:to
-      [:file]
-      [:has-content
-       "line 1"
-       "line 2"]]
-     [:empty-dir {:type :dir}]]
-    [:link {:type :sym-link}]]
-   [:hard-link {:type :link, :link-to "/my/path/to/file"}]]
-
   (testing "complex structure"
-    (let [s [{:name "my"
-              :children
-              [{:name "path"
-                :children
-                [{:name "to"
-                  :children
-                  [{:name "file"}
-                   {:name "has-content"
-                    :content ["line 1"
-                              "line 2"]}]}
-                 {:name "empty-dir"
-                  :type :dir}]}
-               {:name "link"
-                :type :sym-link
-                :link-to "/my/path/to"}]}
-             {:name "hard-link"
-              :type :link
-              :link-to "/my/path/to/file"}]
+    (let [s [[:my
+              [:path
+               [:to
+                [:file]
+                [:has-content "line 1" "line 2"]]
+               [:empty-dir {:type :dir}]]
+              [:link {:type :sym-link, :link-to "/my/path/to"}]]
+             [:hard-link {:type :link, :link-to "/my/path/to/file"}]]
           fs (jimfs/create-fs s)]
       (are [result path] (= result (existing-dir? (nio/path fs path)))
         true "/my"
@@ -119,3 +102,12 @@
       (is (= (nio/read-all-lines (nio/path fs "/my/path/to/has-content"))
              ["line 1"
               "line 2"])))))
+
+#_ (deftest list-dir
+  (testing "it works"
+    (let [fs (jimfs/create-fs [{:name "/dir"
+                                :children lkj}])])))
+
+#_(deftest create-tmp-dir
+  (testing "it works"
+    (let [fs (jimfs/create-fs [])])))
