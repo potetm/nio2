@@ -103,11 +103,12 @@
              ["line 1"
               "line 2"])))))
 
-#_ (deftest list-dir
+(deftest list-dir
   (testing "it works"
-    (let [fs (jimfs/create-fs [{:name "/dir"
-                                :children lkj}])])))
-
-#_(deftest create-tmp-dir
-  (testing "it works"
-    (let [fs (jimfs/create-fs [])])))
+    (let [fs (jimfs/create-fs
+               [[:dir1
+                 [:file1]
+                 [:dir2 {:type :dir}]]])]
+      (is (= (set (nio/list-dir (nio/path fs "/dir1")))
+             #{(nio/path fs "/dir1/file1")
+               (nio/path fs "/dir1/dir2")})))))

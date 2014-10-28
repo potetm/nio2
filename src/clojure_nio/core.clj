@@ -1,11 +1,12 @@
 (ns clojure-nio.core
-  (:require [clojure.string :as string])
-  (:import [java.nio.file FileSystem Files LinkOption Path OpenOption FileSystems CopyOption DirectoryStream]
+  (:import [java.nio.file FileSystem Files LinkOption Path OpenOption FileSystems CopyOption DirectoryStream FileStore]
            [java.nio.file.attribute FileAttribute PosixFilePermissions]
            [java.nio.charset StandardCharsets Charset]
-           [java.io OutputStream InputStream]))
+           [java.io OutputStream InputStream]
+           [java.util.concurrent TimeUnit]
+           [java.util HashSet Collection]))
 
-(defn default-fs []
+(defn ^FileSystem default-fs []
   (FileSystems/getDefault))
 
 (defmacro varargs-array [type args]
@@ -21,6 +22,9 @@
 
 ;; QUERY
 
+(defn executable? [^Path path]
+  (Files/isExecutable path))
+
 (defn exists? [^Path path & link-options]
   (Files/exists path (link-opts link-options)))
 
@@ -30,13 +34,37 @@
 (defn dir? [^Path path & link-options]
   (Files/isDirectory path (link-opts link-options)))
 
+(defn hidden? [^Path path]
+  (Files/isHidden path))
+
+(defn readable? [^Path path]
+  (Files/isReadable path))
+
+(defn same-file? [^Path path1 ^Path path2]
+  (Files/isSameFile path1 path2))
+
 (defn sym-link? [^Path path]
   (Files/isSymbolicLink path))
+
+(defn writable? [^Path path]
+  (Files/isWritable path))
 
 ;; INTERACT
 
 (defn read-sym-link [^Path path]
   (Files/readSymbolicLink path))
+
+(defn get-attr [^Path path ^String attr & link-options]
+  (Files/getAttribute path attr (link-opts link-options)))
+
+(defn get-file-store [^Path path]
+  (Files/getFileStore path))
+
+(defn get-last-modified [^Path path & link-options]
+  (.toMillis (Files/getLastModifiedTime path (link-opts link-options))))
+
+(defn get-owner [^Path path & link-options]
+  (.getName (Files/getOwner path (link-opts link-options))))
 
 (defn list-dir [^Path path]
   (let [files (atom [])]
@@ -45,7 +73,7 @@
         (swap! files conj file)))
     @files))
 
-;; CREATE
+;; CREATE / DELETE
 
 (defn create-dir [^Path path & file-attributes]
   (Files/createDirectory path (file-attrs file-attributes)))
@@ -62,20 +90,37 @@
 (defn create-sym-link [^Path link ^Path existing & file-attributes]
   (Files/createSymbolicLink link existing (file-attrs file-attributes)))
 
-(defprotocol ICreateTmpDir
-  (create-tmp-dir [me & rest]))
+(defn create-tmp-dir [^Path dir ^String prefix & file-attributes]
+  (Files/createTempDirectory dir prefix (file-attrs file-attributes)))
 
-(extend Path
-  ICreateTmpDir
-  {:create-tmp-dir (fn create-tmp-dir [dir & [prefix & file-attributes]]
-                     (Files/createTempDirectory dir prefix (file-attrs file-attributes)))})
+(defn create-tmp-dir-on-default-fs [^String prefix & file-attributes]
+  (Files/createTempDirectory prefix (file-attrs file-attributes)))
 
-(extend String
-  ICreateTmpDir
-  {:create-tmp-dir (fn create-tmp-dir [prefix & file-attributes]
-                     (Files/createTempDirectory prefix (file-attrs file-attributes)))})
+(defn create-tmp-file [^Path dir ^String prefix ^String suffix & file-attributes]
+  (Files/createTempFile dir prefix suffix (file-attrs file-attributes)))
+
+(defn create-tmp-file-on-default-fs [^String prefix ^String suffix & file-attributes]
+  (Files/createTempFile prefix suffix (file-attrs file-attributes)))
+
+(defn delete [^Path path]
+  (Files/deleteIfExists path))
 
 ;; IO
+
+(defn buffered-reader
+  ([^Path path]
+   (buffered-reader path StandardCharsets/UTF_8))
+  ([^Path path ^Charset charset]
+   (Files/newBufferedReader path charset)))
+
+(defn buffered-writer
+  ([^Path path]
+   (buffered-writer path StandardCharsets/UTF_8))
+  ([^Path path ^Charset charset & open-options]
+   (Files/newBufferedWriter path charset (open-opts open-options))))
+
+(defn byte-channel [^Path path open-options & file-attributes]
+  (Files/newByteChannel path (HashSet. ^Collection open-options) (file-attrs file-attributes)))
 
 (defn copy [src target & copy-options]
   (let [^"[Ljava.nio.file.CopyOption;" copy-options (copy-opts copy-options)]
