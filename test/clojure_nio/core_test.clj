@@ -1,4 +1,5 @@
 (ns clojure-nio.core-test
+  (:import [java.nio.file FileSystem FileSystems FileAlreadyExistsException])
   (:require [clojure.test :refer :all]
             [clojure-nio.core :as nio]
             [clojure-nio.jimfs :as jimfs]))
@@ -16,10 +17,7 @@
        (nio/sym-link? link)
        (= (nio/read-sym-link link) link-to)))
 
-;; this is a better syntax I think
-
 (deftest create-fs-test
-
   (testing "a single file"
     (let [s [[:foo]]
           fs (jimfs/create-fs s)]
@@ -103,7 +101,7 @@
              ["line 1"
               "line 2"])))))
 
-(deftest list-dir
+(deftest dir-stream
   (testing "it works"
     (let [fs (jimfs/create-fs
                [[:dir1
@@ -139,3 +137,33 @@
       (is (= (nio/split (nio/path fs "/dir1/dir2/file1"))
              (map (partial nio/path fs)
                   ["dir1" "dir2" "file1"]))))))
+
+(deftest create-file
+  (testing "creating a file that already exists returns nil"
+    (testing "creating a file that already exists returns nil and doesn't throw exception"
+      (let [fs (jimfs/create-fs
+                 [[:dir1
+                   [:dir2
+                    [:file1]]]])]
+        (is (nil? (nio/create-file (nio/path fs "/dir1/dir2/file1"))))))
+    (testing "creating a file for a path that exists and isn't a file returns nil and doesn't throw exception"
+      (let [fs (jimfs/create-fs
+                 [[:dir1
+                   [:dir2
+                    [:file1]]]])]
+        (is (nil? (nio/create-file (nio/path fs "/dir1/dir2"))))))))
+
+(deftest create-dir
+  (testing "creating a dir that already exists returns nil"
+    (testing "creating a dir that already exists returns nil and doesn't throw exception"
+      (let [fs (jimfs/create-fs
+                 [[:dir1
+                   [:dir2
+                    [:file1]]]])]
+        (is (nil? (nio/create-dir (nio/path fs "/dir1/dir2")))))))
+  (testing "creating a dir for a path that exists and isn't a dir returns nil and doesn't throw exception"
+    (let [fs (jimfs/create-fs
+               [[:dir1
+                 [:dir2
+                  [:file1]]]])]
+      (is (nil? (nio/create-dir (nio/path fs "/dir1/dir2/file1")))))))

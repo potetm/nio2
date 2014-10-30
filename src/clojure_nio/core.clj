@@ -1,5 +1,5 @@
 (ns clojure-nio.core
-  (:import [java.nio.file FileSystem Files LinkOption Path OpenOption FileSystems CopyOption DirectoryStream FileStore]
+  (:import [java.nio.file FileSystem Files LinkOption Path OpenOption FileSystems CopyOption DirectoryStream FileStore FileAlreadyExistsException]
            [java.nio.file.attribute FileAttribute PosixFilePermissions]
            [java.nio.charset StandardCharsets Charset]
            [java.io OutputStream InputStream]
@@ -132,13 +132,19 @@
 ;; CREATE / DELETE
 
 (defn create-dir [^Path path & file-attributes]
-  (Files/createDirectory path (file-attrs file-attributes)))
+  (try
+    ;; the check for file exists is atomic in this method, so we want to take advantage of that
+    (Files/createDirectory path (file-attrs file-attributes))
+    (catch FileAlreadyExistsException _)))
 
 (defn create-dirs [^Path path & file-attributes]
   (Files/createDirectories path (file-attrs file-attributes)))
 
 (defn create-file [^Path path & file-attributes]
-  (Files/createFile path (file-attrs file-attributes)))
+  (try
+    ;; the check for file exists is atomic in this method, so we want to take advantage of that
+    (Files/createFile path (file-attrs file-attributes))
+    (catch FileAlreadyExistsException _)))
 
 (defn create-hard-link [^Path link ^Path existing]
   (Files/createLink link existing))
