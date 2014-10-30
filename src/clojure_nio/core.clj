@@ -1,5 +1,15 @@
 (ns clojure-nio.core
-  (:import [java.nio.file FileSystem Files LinkOption Path OpenOption FileSystems CopyOption DirectoryStream FileStore FileAlreadyExistsException]
+  (:import [java.nio.file CopyOption
+                          DirectoryStream
+                          LinkOption
+                          FileAlreadyExistsException
+                          Files
+                          FileStore
+                          FileSystem
+                          FileSystems
+                          FileVisitOption
+                          OpenOption
+                          Path]
            [java.nio.file.attribute FileAttribute PosixFilePermissions]
            [java.nio.charset StandardCharsets Charset]
            [java.io OutputStream InputStream]
@@ -12,10 +22,11 @@
 (defmacro varargs-array [type args]
   `(into-array ~type (or ~args [])))
 
-(defmacro link-opts [args] `(varargs-array LinkOption ~args))
 (defmacro copy-opts [args] `(varargs-array CopyOption ~args))
+(defmacro file-attrs [args] `(varargs-array FileVisitOption ~args))
+(defmacro file-visit-opts [args] `(varargs-array FileAttribute ~args))
+(defmacro link-opts [args] `(varargs-array LinkOption ~args))
 (defmacro open-opts [args] `(varargs-array OpenOption ~args))
-(defmacro file-attrs [args] `(varargs-array FileAttribute ~args))
 
 ;; Path fns
 
@@ -172,6 +183,12 @@
 
 ;; IO
 
+(defn walk
+  ([^Path path]
+   (Files/walk path (file-visit-opts [])))
+  ([^Path path ^Integer depth & file-visit-options]
+   (Files/walk path depth (file-visit-opts file-visit-options))))
+
 (defn buffered-reader
   ([^Path path]
    (buffered-reader path StandardCharsets/UTF_8))
@@ -187,7 +204,7 @@
 (defn byte-channel [^Path path open-options & file-attributes]
   (Files/newByteChannel path (HashSet. ^Collection open-options) (file-attrs file-attributes)))
 
-(defn copy [src target & copy-options]
+(defn copy-file [src target & copy-options]
   (let [^"[Ljava.nio.file.CopyOption;" copy-options (copy-opts copy-options)]
     (if (instance? Path src)
       (if (instance? Path target)
