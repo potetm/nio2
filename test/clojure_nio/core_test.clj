@@ -109,6 +109,33 @@
                [[:dir1
                  [:file1]
                  [:dir2 {:type :dir}]]])]
-      (is (= (set (nio/list-dir (nio/path fs "/dir1")))
-             #{(nio/path fs "/dir1/file1")
-               (nio/path fs "/dir1/dir2")})))))
+      (with-open [ds (nio/dir-stream (nio/path fs "/dir1"))]
+        (is (= (set ds)
+               #{(nio/path fs "/dir1/file1")
+                 (nio/path fs "/dir1/dir2")})))))
+  (testing "it can be filtered"
+    (let [fs (jimfs/create-fs
+               [[:dir1
+                 [:file1]
+                 [:dir2 {:type :dir}]]])]
+      (with-open [ds (nio/dir-stream (nio/path fs "/dir1"))]
+        (is (= (set (filter (partial = (nio/path fs "/dir1/file1")) ds))
+               #{(nio/path fs "/dir1/file1")})))))
+  (testing "it can be mapped"
+    (let [fs (jimfs/create-fs
+               [[:dir1
+                 [:file1]
+                 [:dir2 {:type :dir}]]])]
+      (with-open [ds (nio/dir-stream (nio/path fs "/dir1"))]
+        (is (= (set (map (comp str nio/filename) ds))
+               #{"file1" "dir2"}))))))
+
+(deftest split
+  (testing "it works"
+    (let [fs (jimfs/create-fs
+               [[:dir1
+                 [:dir2
+                  [:file1]]]])]
+      (is (= (nio/split (nio/path fs "/dir1/dir2/file1"))
+             (map (partial nio/path fs)
+                  ["dir1" "dir2" "file1"]))))))
