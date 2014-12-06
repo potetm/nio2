@@ -1,7 +1,7 @@
 (defproject
-  clojure-nio "0.1.0-SNAPSHOT"
+  paths "0.1.0"
   :description "A clojure wrapper around java.nio.file package"
-  :url "http://github.com/potetm/clojure-nio"
+  :url "http://github.com/potetm/paths"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]]

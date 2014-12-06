@@ -1,4 +1,4 @@
-(ns clojure-nio.core
+(ns paths.core
   (:refer-clojure :exclude [resolve])
   (:import [java.io File InputStream OutputStream]
            [java.net URI]

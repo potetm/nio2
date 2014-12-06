@@ -1,5 +1,5 @@
-(ns clojure-nio.jimfs
-  (:require [clojure-nio.core :as nio])
+(ns paths.jimfs
+  (:require [paths.core :as paths])
   (:import [com.google.common.jimfs Configuration Jimfs]))
 
 (defprotocol IConfiguration
@@ -27,5 +27,5 @@
   ([struct os-kw]
     (let [config (os-kw configurations)
           fs (init-fs config)]
-      (nio/create-fs-tree! fs (fs-root config) struct)
+      (paths/create-fs-tree! fs (fs-root config) struct)
       fs)))
