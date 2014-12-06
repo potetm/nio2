@@ -1,5 +1,5 @@
-(ns paths.jimfs
-  (:require [paths.core :as paths])
+(ns nio2.jimfs
+  (:require [nio2.core :as nio2])
   (:import [com.google.common.jimfs Configuration Jimfs]))
 
 (defprotocol IConfiguration
@@ -27,5 +27,5 @@
   ([struct os-kw]
     (let [config (os-kw configurations)
           fs (init-fs config)]
-      (paths/create-fs-tree! fs (fs-root config) struct)
+      (nio2/create-fs-tree! fs (fs-root config) struct)
       fs)))

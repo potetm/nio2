@@ -1,10 +1,10 @@
-(ns paths.core-test
+(ns nio2.core-test
   (:import (java.nio.file FileSystems Path LinkOption)
            (java.io File)
            (java.net URI))
   (:require [clojure.test :refer :all]
-            [paths.core :as paths]
-            [paths.jimfs :as jimfs]))
+            [nio2.core :as paths]
+            [nio2.jimfs :as jimfs]))
 
 (deftest default-fs
   (testing "it returns the default fs"
@@ -51,7 +51,7 @@
              fs)))))
 
 (deftest join
-  (testing "It joins two paths"
+  (testing "It joins two nio2"
     (let [fs (jimfs/create-fs [])
           parent (paths/path fs "/parent")
           child (paths/path fs "child")]
@@ -82,7 +82,7 @@
     (let [fs (jimfs/create-fs [])]
       (is (= (paths/root (paths/path fs "/path/to/file"))
              (paths/path fs "/")))))
-  (testing "it returns nil for relative paths"
+  (testing "it returns nil for relative nio2"
     (let [fs (jimfs/create-fs [])]
       (is (nil? (paths/root (paths/path fs "relative")))))))
 
