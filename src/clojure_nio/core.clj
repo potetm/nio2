@@ -1,20 +1,19 @@
 (ns clojure-nio.core
-  (:import [java.nio.file CopyOption
+  (:refer-clojure :exclude [resolve])
+  (:import [java.io File InputStream OutputStream]
+           [java.net URI]
+           [java.nio.file CopyOption
                           DirectoryStream
                           LinkOption
                           FileAlreadyExistsException
                           Files
-                          FileStore
                           FileSystem
                           FileSystems
-                          FileVisitOption
                           OpenOption
                           Path]
-           [java.nio.file.attribute FileAttribute PosixFilePermissions]
-           [java.nio.charset StandardCharsets Charset]
-           [java.io OutputStream InputStream]
-           [java.util.concurrent TimeUnit]
-           [java.util HashSet Collection Set]))
+           [java.nio.file.attribute FileAttribute FileTime PosixFilePermissions]
+           [java.nio.charset Charset StandardCharsets]
+           [java.util Collection HashSet Set]))
 
 (defn ^FileSystem default-fs []
   (FileSystems/getDefault))
@@ -23,91 +22,94 @@
   `(into-array ~type (or ~args [])))
 
 (defmacro copy-opts [args] `(varargs-array CopyOption ~args))
-(defmacro file-attrs [args] `(varargs-array FileVisitOption ~args))
-(defmacro file-visit-opts [args] `(varargs-array FileAttribute ~args))
+(defmacro file-attrs [args] `(varargs-array FileAttribute ~args))
 (defmacro link-opts [args] `(varargs-array LinkOption ~args))
 (defmacro open-opts [args] `(varargs-array OpenOption ~args))
 
 ;; Path fns
 
-(defn path [^FileSystem fs ^String path & paths]
+(defn ^Path path [^FileSystem fs ^String path & paths]
   (.getPath fs path (varargs-array String paths)))
 
-(defn absolute [^Path path]
+(defn ^Path absolute [^Path path]
   (.toAbsolutePath path))
 
-(defn absolute? [^Path path]
-  (.isAbsolute path))
-
-(defn file [^Path path]
+(defn ^File file [^Path path]
   (.toFile path))
 
-(defn filename [^Path path]
+(defn ^Path filename [^Path path]
   (.getFileName path))
 
-(defn get-fs [^Path path]
+(defn ^FileSystem get-fs [^Path path]
   (.getFileSystem path))
 
-(defn join [^Path parent ^Path child]
+(defn ^FileSystem join [^Path parent ^Path child]
   (.resolve parent child))
 
-(defn normalize [^Path path]
+(defn ^Path normalize [^Path path]
   (.normalize path))
 
-(defn parent [^Path path]
+(defn ^Path parent [^Path path]
   (.getParent path))
 
-(defn path-to [^Path from ^Path to]
+(defn relativize [^Path from ^Path to]
   (.relativize from to))
 
-(defn root [^Path path]
+(def resolve join)
+
+(defn ^Path root [^Path path]
   (.getRoot path))
 
 (defn split [^Path path]
   (iterator-seq (.iterator path)))
 
-(defn uri [^Path path]
+(defn ^URI uri [^Path path]
   (.toUri path))
 
 ;; QUERY
 
-(defn executable? [^Path path]
+(defn ^Boolean absolute? [^Path path]
+  (.isAbsolute path))
+
+(defn ^Boolean executable? [^Path path]
   (Files/isExecutable path))
 
-(defn exists? [^Path path & link-options]
+(defn ^Boolean exists? [^Path path & link-options]
   (Files/exists path (link-opts link-options)))
 
-(defn file? [^Path path & link-options]
+(defn ^Boolean file? [^Path path & link-options]
   (Files/isRegularFile path (link-opts link-options)))
 
-(defn dir? [^Path path & link-options]
+(defn ^Boolean dir? [^Path path & link-options]
   (Files/isDirectory path (link-opts link-options)))
 
-(defn hidden? [^Path path]
+(defn ^Boolean hidden? [^Path path]
   (Files/isHidden path))
 
-(defn readable? [^Path path]
+(defn ^Boolean readable? [^Path path]
   (Files/isReadable path))
 
-(defn same-file? [^Path path1 ^Path path2]
+(defn ^Boolean same-file? [^Path path1 ^Path path2]
   (Files/isSameFile path1 path2))
 
-(defn sym-link? [^Path path]
+(defn ^Boolean sym-link? [^Path path]
   (Files/isSymbolicLink path))
 
-(defn writable? [^Path path]
+(defn ^Boolean writable? [^Path path]
   (Files/isWritable path))
 
 ;; INTERACT
 
 (defn ^DirectoryStream dir-stream
-  "Returns a new DirectoryStream. Should be used inside a with-open block.
+  "Lazily list the contents of a directory.
+
+   Returns a new DirectoryStream. Should be used inside a with-open block.
 
    Because Streams implement Iterable, it can basically be used as a clojure seq."
   ([^Path path]
-   (Files/newDirectoryStream path))
+    (Files/newDirectoryStream path))
   ([^Path path ^String glob]
-   (Files/newDirectoryStream path glob)))
+    (Files/newDirectoryStream path glob)))
 
 (defn attr [^Path path ^String attr & link-options]
   (Files/getAttribute path attr (link-opts link-options)))
@@ -119,8 +121,10 @@
 (defn file-store [^Path path]
   (Files/getFileStore path))
 
-(defn last-modified [^Path path & link-options]
-  (.toMillis (Files/getLastModifiedTime path (link-opts link-options))))
+(defn last-modified
+  "Get the last modified time in millis from the epoch"
+  [^Path path & link-options]
+  (.toMillis ^FileTime (Files/getLastModifiedTime path (link-opts link-options))))
 
 (defn owner [^Path path & link-options]
   (.getName (Files/getOwner path (link-opts link-options))))
@@ -183,23 +187,17 @@
 
 ;; IO
 
-(defn walk
-  ([^Path path]
-   (Files/walk path (file-visit-opts [])))
-  ([^Path path ^Integer depth & file-visit-options]
-   (Files/walk path depth (file-visit-opts file-visit-options))))
-
 (defn buffered-reader
   ([^Path path]
-   (buffered-reader path StandardCharsets/UTF_8))
+    (buffered-reader path StandardCharsets/UTF_8))
   ([^Path path ^Charset charset]
-   (Files/newBufferedReader path charset)))
+    (Files/newBufferedReader path charset)))
 
 (defn buffered-writer
   ([^Path path]
-   (buffered-writer path StandardCharsets/UTF_8))
+    (buffered-writer path StandardCharsets/UTF_8))
   ([^Path path ^Charset charset & open-options]
-   (Files/newBufferedWriter path charset (open-opts open-options))))
+    (Files/newBufferedWriter path charset (open-opts open-options))))
 
 (defn byte-channel [^Path path open-options & file-attributes]
   (Files/newByteChannel path (HashSet. ^Collection open-options) (file-attrs file-attributes)))
@@ -223,9 +221,9 @@
 
 (defn read-all-lines
   ([^Path path]
-   (read-all-lines path StandardCharsets/UTF_8))
+    (read-all-lines path StandardCharsets/UTF_8))
   ([^Path path ^Charset charset]
-   (Files/readAllLines path charset)))
+    (Files/readAllLines path charset)))
 
 (defn write-bytes [^Path path ^bytes bytes & open-options]
   (let [^"[Ljava.nio.file.OpenOption;" open-options (open-opts open-options)]
@@ -233,9 +231,9 @@
 
 (defn write-lines
   ([^Path path lines]
-   (write-lines path lines StandardCharsets/UTF_8))
+    (write-lines path lines StandardCharsets/UTF_8))
   ([^Path path lines ^Charset charset & open-options]
-   (Files/write path lines charset (open-opts open-options))))
+    (Files/write path lines charset (open-opts open-options))))
 
 ;; UTILS
 
@@ -273,7 +271,7 @@
                   (create-sym-link my-path (path fs (:link-to attrs))))
       (throw (ex-info "Illegal type" file-name)))))
 
-(defn posix-perm-file-attrs [perm-str]
+(defn posix-perm-file-attrs [^String perm-str]
   (PosixFilePermissions/asFileAttribute
     (PosixFilePermissions/fromString
       perm-str)))

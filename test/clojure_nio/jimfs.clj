@@ -1,11 +1,6 @@
 (ns clojure-nio.jimfs
   (:require [clojure-nio.core :as nio])
-  (:import [com.google.common.jimfs Configuration Jimfs]
-           [java.nio.file FileSystem Files LinkOption Path OpenOption]
-           [java.nio.file.attribute FileAttribute PosixFilePermissions]
-           [java.io File]
-           [java.nio.charset StandardCharsets]
-           [java.util ArrayList]))
+  (:import [com.google.common.jimfs Configuration Jimfs]))
 
 (defprotocol IConfiguration
   (os [_])
@@ -28,9 +23,9 @@
 
 (defn create-fs
   ([struct]
-   (create-fs struct :unix))
+    (create-fs struct :unix))
   ([struct os-kw]
-   (let [config (os-kw configurations)
-         fs (init-fs config)]
-     (nio/create-fs-tree! fs (fs-root config) struct)
-     fs)))
+    (let [config (os-kw configurations)
+          fs (init-fs config)]
+      (nio/create-fs-tree! fs (fs-root config) struct)
+      fs)))
