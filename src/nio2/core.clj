@@ -28,8 +28,25 @@
 
 ;; Path fns
 
-(defn ^Path path [^FileSystem fs ^String path & paths]
-  (.getPath fs path (varargs-array String paths)))
+(def ^{:dynamic true
+       :tag FileSystem} *fs*)
+
+(defprotocol ^:private IPath
+  (-path [this paths]))
+
+(extend-type FileSystem
+  IPath
+  (-path [this [path & paths]]
+    (let [^FileSystem this this]
+      (.getPath this path (varargs-array String paths)))))
+
+(extend-type String
+  IPath
+  (-path [this paths]
+    (.getPath *fs* this (varargs-array String paths))))
+
+(defn ^Path path [& [fs-or-path-str & paths]]
+  (-path fs-or-path-str paths))
 
 (defn ^Path absolute [^Path path]
   (.toAbsolutePath path))
@@ -107,9 +124,9 @@
 
    Because Streams implement Iterable, it can basically be used as a clojure seq."
   ([^Path path]
-    (Files/newDirectoryStream path))
+   (Files/newDirectoryStream path))
   ([^Path path ^String glob]
-    (Files/newDirectoryStream path glob)))
+   (Files/newDirectoryStream path glob)))
 
 (defn attr [^Path path ^String attr & link-options]
   (Files/getAttribute path attr (link-opts link-options)))
@@ -189,15 +206,15 @@
 
 (defn buffered-reader
   ([^Path path]
-    (buffered-reader path StandardCharsets/UTF_8))
+   (buffered-reader path StandardCharsets/UTF_8))
   ([^Path path ^Charset charset]
-    (Files/newBufferedReader path charset)))
+   (Files/newBufferedReader path charset)))
 
 (defn buffered-writer
   ([^Path path]
-    (buffered-writer path StandardCharsets/UTF_8))
+   (buffered-writer path StandardCharsets/UTF_8))
   ([^Path path ^Charset charset & open-options]
-    (Files/newBufferedWriter path charset (open-opts open-options))))
+   (Files/newBufferedWriter path charset (open-opts open-options))))
 
 (defn byte-channel [^Path path open-options & file-attributes]
   (Files/newByteChannel path (HashSet. ^Collection open-options) (file-attrs file-attributes)))
@@ -221,9 +238,9 @@
 
 (defn read-all-lines
   ([^Path path]
-    (read-all-lines path StandardCharsets/UTF_8))
+   (read-all-lines path StandardCharsets/UTF_8))
   ([^Path path ^Charset charset]
-    (Files/readAllLines path charset)))
+   (Files/readAllLines path charset)))
 
 (defn write-bytes [^Path path ^bytes bytes & open-options]
   (let [^"[Ljava.nio.file.OpenOption;" open-options (open-opts open-options)]
@@ -231,9 +248,9 @@
 
 (defn write-lines
   ([^Path path lines]
-    (write-lines path lines StandardCharsets/UTF_8))
+   (write-lines path lines StandardCharsets/UTF_8))
   ([^Path path lines ^Charset charset & open-options]
-    (Files/write path lines charset (open-opts open-options))))
+   (Files/write path lines charset (open-opts open-options))))
 
 ;; UTILS
 

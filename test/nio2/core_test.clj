@@ -3,20 +3,26 @@
            (java.io File)
            (java.net URI))
   (:require [clojure.test :refer :all]
-            [nio2.core :as paths]
+            [nio2.core :as nio2]
             [nio2.jimfs :as jimfs]))
 
 (deftest default-fs
   (testing "it returns the default fs"
-    (is (= (paths/default-fs) (FileSystems/getDefault)))))
+    (is (= (nio2/default-fs) (FileSystems/getDefault)))))
 
 (deftest path
   (let [fs (jimfs/create-fs [])]
     (testing "it returns a path"
-      (is (instance? Path (paths/path fs "path"))))
+      (is (instance? Path (nio2/path fs "path"))))
     (testing "the varargs form"
-      (is (= (paths/path fs "path/to/file")
-             (paths/path fs "path" "to" "file"))))))
+      (is (= (nio2/path fs "path/to/file")
+             (nio2/path fs "path" "to" "file"))))
+    (testing "it resolves from *fs* when not supplied"
+      (with-bindings {#'nio2.core/*fs* fs}
+        (is (instance? Path (nio2/path "path")))))
+    (testing "resolving from *fs* works with multiple arguments"
+      (with-bindings {#'nio2.core/*fs* fs}
+        (is (instance? Path (nio2/path "path" "to" "file")))))))
 
 (deftest absolute
   (testing
@@ -28,63 +34,63 @@
 
      http://docs.oracle.com/javase/7/docs/api/java/nio/file/Path.html#toAbsolutePath%28%29"
     (let [fs (jimfs/create-fs [])]
-      (is (= (paths/absolute (paths/path fs "file"))
-             (paths/path fs "/work/file"))))))
+      (is (= (nio2/absolute (nio2/path fs "file"))
+             (nio2/path fs "/work/file"))))))
 
 (deftest file
   (testing
     "It returns a file. NOTE: JimFS can't do this so we use the default fs"
-    (let [tmp-dir (paths/create-tmp-dir-on-default-fs "nio-test")]
+    (let [tmp-dir (nio2/create-tmp-dir-on-default-fs "nio-test")]
       (is (= (str tmp-dir)
-             (.getAbsolutePath ^File (paths/file tmp-dir)))))))
+             (.getAbsolutePath ^File (nio2/file tmp-dir)))))))
 
 (deftest filename
   (testing "It returns the filename"
     (let [fs (jimfs/create-fs [])]
-      (is (= (paths/filename (paths/path fs "path/to/file"))
-             (paths/path fs "file"))))))
+      (is (= (nio2/filename (nio2/path fs "path/to/file"))
+             (nio2/path fs "file"))))))
 
 (deftest get-fs
   (testing "It returns the fs"
     (let [fs (jimfs/create-fs [])]
-      (is (= (paths/get-fs (paths/path fs "path/to/file"))
+      (is (= (nio2/get-fs (nio2/path fs "path/to/file"))
              fs)))))
 
 (deftest join
   (testing "It joins two nio2"
     (let [fs (jimfs/create-fs [])
-          parent (paths/path fs "/parent")
-          child (paths/path fs "child")]
-      (is (= (paths/join parent child)
-             (paths/path fs "/parent/child"))))))
+          parent (nio2/path fs "/parent")
+          child (nio2/path fs "child")]
+      (is (= (nio2/join parent child)
+             (nio2/path fs "/parent/child"))))))
 
 (deftest normalize
   (testing "It normalizes"
     (let [fs (jimfs/create-fs [])]
-      (is (= (paths/path fs "path/to/file")
-             (paths/normalize (paths/path fs "path/../path/./to/file")))))))
+      (is (= (nio2/path fs "path/to/file")
+             (nio2/normalize (nio2/path fs "path/../path/./to/file")))))))
 
 (deftest parent
   (testing "It parents"
     (let [fs (jimfs/create-fs [])]
-      (is (= (paths/parent (paths/path fs "parent/child"))
-             (paths/path fs "parent"))))))
+      (is (= (nio2/parent (nio2/path fs "parent/child"))
+             (nio2/path fs "parent"))))))
 
 (deftest relativize
   (testing "it makes a relative path"
     (let [fs (jimfs/create-fs [])]
-      (is (= (paths/path fs "to/file")
-             (paths/relativize (paths/path fs "/my/path")
-                             (paths/path fs "/my/path/to/file")))))))
+      (is (= (nio2/path fs "to/file")
+             (nio2/relativize (nio2/path fs "/my/path")
+                              (nio2/path fs "/my/path/to/file")))))))
 
 (deftest root
   (testing "it roots"
     (let [fs (jimfs/create-fs [])]
-      (is (= (paths/root (paths/path fs "/path/to/file"))
-             (paths/path fs "/")))))
+      (is (= (nio2/root (nio2/path fs "/path/to/file"))
+             (nio2/path fs "/")))))
   (testing "it returns nil for relative nio2"
     (let [fs (jimfs/create-fs [])]
-      (is (nil? (paths/root (paths/path fs "relative")))))))
+      (is (nil? (nio2/root (nio2/path fs "relative")))))))
 
 (deftest split
   (testing "it returns a seq of path parts"
@@ -92,31 +98,31 @@
                [[:dir1
                  [:dir2
                   [:file1]]]])]
-      (is (= (paths/split (paths/path fs "/dir1/dir2/file1"))
-             (map (partial paths/path fs)
+      (is (= (nio2/split (nio2/path fs "/dir1/dir2/file1"))
+             (map (partial nio2/path fs)
                   ["dir1" "dir2" "file1"]))))))
 
 (deftest uri
   (testing "it uris"
     (let [fs (jimfs/create-fs [])]
-      (is (instance? URI (paths/uri (paths/path fs "/path/to/file"))))
-      (is (.endsWith (str (paths/uri (paths/path fs "/path/to/file")))
+      (is (instance? URI (nio2/uri (nio2/path fs "/path/to/file"))))
+      (is (.endsWith (str (nio2/uri (nio2/path fs "/path/to/file")))
                      "/path/to/file")))))
 
 (deftest exists?
   (testing "it returns true if the file exists"
     (let [fs (jimfs/create-fs [[:i-exist]])]
-      (is (paths/exists? (paths/path fs "/i-exist")))))
+      (is (nio2/exists? (nio2/path fs "/i-exist")))))
   (testing "it returns false if the file don't exist"
-    (is (not (paths/exists? (paths/path (jimfs/create-fs []) "no-exist")))))
+    (is (not (nio2/exists? (nio2/path (jimfs/create-fs []) "no-exist")))))
   (testing "multi-arity"
     (let [fs (jimfs/create-fs
                [[:link {:type :sym-link
                         :link-to "/target"}]])]
-      (is (paths/exists?
-            (paths/path fs "/link")
+      (is (nio2/exists?
+            (nio2/path fs "/link")
             LinkOption/NOFOLLOW_LINKS))
-      (is (not (paths/exists? (paths/path fs "/link")))))))
+      (is (not (nio2/exists? (nio2/path fs "/link")))))))
 
 (deftest dir-stream
   (testing "it works"
@@ -124,88 +130,88 @@
                [[:dir1
                  [:file1]
                  [:dir2 {:type :dir}]]])]
-      (with-open [ds (paths/dir-stream (paths/path fs "/dir1"))]
+      (with-open [ds (nio2/dir-stream (nio2/path fs "/dir1"))]
         (is (= (set ds)
-               #{(paths/path fs "/dir1/file1")
-                 (paths/path fs "/dir1/dir2")})))))
+               #{(nio2/path fs "/dir1/file1")
+                 (nio2/path fs "/dir1/dir2")})))))
   (testing "it can be filtered"
     (let [fs (jimfs/create-fs
                [[:dir1
                  [:file1]
                  [:dir2 {:type :dir}]]])]
-      (with-open [ds (paths/dir-stream (paths/path fs "/dir1"))]
-        (is (= (set (filter (partial = (paths/path fs "/dir1/file1")) ds))
-               #{(paths/path fs "/dir1/file1")})))))
+      (with-open [ds (nio2/dir-stream (nio2/path fs "/dir1"))]
+        (is (= (set (filter (partial = (nio2/path fs "/dir1/file1")) ds))
+               #{(nio2/path fs "/dir1/file1")})))))
   (testing "it can be mapped"
     (let [fs (jimfs/create-fs
                [[:dir1
                  [:file1]
                  [:dir2 {:type :dir}]]])]
-      (with-open [ds (paths/dir-stream (paths/path fs "/dir1"))]
-        (is (= (set (map (comp str paths/filename) ds))
+      (with-open [ds (nio2/dir-stream (nio2/path fs "/dir1"))]
+        (is (= (set (map (comp str nio2/filename) ds))
                #{"file1" "dir2"})))))
   (testing "the glob"
     (let [fs (jimfs/create-fs
                [[:dir
                  [:matches]
                  [:dont-match]]])]
-      (with-open [ds (paths/dir-stream (paths/path fs "/dir") "mat*")]
-        (is (= [(paths/path fs "/dir/matches")]
+      (with-open [ds (nio2/dir-stream (nio2/path fs "/dir") "mat*")]
+        (is (= [(nio2/path fs "/dir/matches")]
                (into [] ds)))))))
 
 (deftest last-modified
   (testing "it returns the last modified date for a file"
     (let [fs (jimfs/create-fs
                [[:file]])]
-      (is (number? (paths/last-modified (paths/path fs "/file")))))))
+      (is (number? (nio2/last-modified (nio2/path fs "/file")))))))
 
 (deftest create-fs-test
   (testing "a single file"
     (let [s [[:foo]]
           fs (jimfs/create-fs s)
-          path (paths/path fs "/foo")]
-      (is (paths/exists? path))
-      (is (paths/file? path))))
+          path (nio2/path fs "/foo")]
+      (is (nio2/exists? path))
+      (is (nio2/file? path))))
 
   (testing "two files"
     (let [s [[:foo]
              [:bar]]
           fs (jimfs/create-fs s)
-          foo (paths/path fs "/foo")
-          bar (paths/path fs "/bar")]
-      (is (paths/exists? foo))
-      (is (paths/file? foo))
-      (is (paths/exists? bar))
-      (is (paths/file? bar))))
+          foo (nio2/path fs "/foo")
+          bar (nio2/path fs "/bar")]
+      (is (nio2/exists? foo))
+      (is (nio2/file? foo))
+      (is (nio2/exists? bar))
+      (is (nio2/file? bar))))
 
   (testing "the negative case"
     (let [s [[:foo]]
           fs (jimfs/create-fs s)]
-      (is (not (paths/exists? (paths/path fs "/not-exists"))))))
+      (is (not (nio2/exists? (nio2/path fs "/not-exists"))))))
 
   (testing "nesting"
     (let [my-fs-struct [[:foo
                          [:bar
                           [:baz]]]]
           fs (jimfs/create-fs my-fs-struct)
-          path (paths/path fs "/foo/bar/baz")]
-      (is (paths/exists? path))
-      (is (paths/file? path))))
+          path (nio2/path fs "/foo/bar/baz")]
+      (is (nio2/exists? path))
+      (is (nio2/file? path))))
 
   (testing "creating an empty dir"
     (let [s [[:foo {:type :dir}]]
           fs (jimfs/create-fs s)]
-      (is (paths/dir? (paths/path fs "/foo")))))
+      (is (nio2/dir? (nio2/path fs "/foo")))))
 
   (testing "creating a sym link"
     (let [s [[:foo]
              [:linky {:type :sym-link
                       :link-to "/foo"}]]
           fs (jimfs/create-fs s)
-          link (paths/path fs "/linky")]
-      (is (paths/exists? link))
-      (is (paths/sym-link? link))
-      (is (= (paths/read-sym-link link) (paths/path fs "/foo")))))
+          link (nio2/path fs "/linky")]
+      (is (nio2/exists? link))
+      (is (nio2/sym-link? link))
+      (is (= (nio2/read-sym-link link) (nio2/path fs "/foo")))))
 
   (testing "creating a sym link without a :link-to throws an AssertionError"
     (let [s [[:foo]
@@ -217,9 +223,9 @@
              [:hardlink {:type :link
                          :link-to "/foo"}]]
           fs (jimfs/create-fs s)
-          path (paths/path fs "/hardlink")]
-      (is (paths/exists? path))
-      (is (paths/file? path))))
+          path (nio2/path fs "/hardlink")]
+      (is (nio2/exists? path))
+      (is (nio2/file? path))))
 
   (testing "creating a sym link without a :link-to throws an AssertionError"
     (let [s [[:foo]
@@ -229,29 +235,29 @@
   (testing "writing contents"
     (let [s [[:foo "hello, world!"]]
           fs (jimfs/create-fs s)]
-      (is (= (paths/read-all-lines (paths/path fs "/foo"))
+      (is (= (nio2/read-all-lines (nio2/path fs "/foo"))
              ["hello, world!"]))))
 
   (testing "complex structure"
-    (let [s [[:my
-              [:path
-               [:to
-                [:file]
-                [:has-content "line 1" "line 2"]]
-               [:empty-dir {:type :dir}]]
-              [:link {:type :sym-link, :link-to "/my/path/to"}]]
-             [:hard-link {:type :link, :link-to "/my/path/to/file"}]]
-          fs (jimfs/create-fs s)]
-      (are [result path] (= result (paths/dir? (paths/path fs path)))
-        true "/my"
-        true "/my/path"
-        true "/my/path/to"
-        true "/my/path/empty-dir")
-      (is (paths/file? (paths/path fs "/my/path/to/file")))
-      (is (paths/file? (paths/path fs "/hard-link")))
-      (is (paths/sym-link? (paths/path fs "/my/link")))
-      (is (= (paths/read-sym-link (paths/path fs "/my/link")) (paths/path fs "/my/path/to")))
-      (is (= (paths/read-all-lines (paths/path fs "/my/path/to/has-content"))
+    (let [fs (jimfs/create-fs
+               [[:my
+                 [:path
+                  [:to
+                   [:file]
+                   [:has-content "line 1" "line 2"]]
+                  [:empty-dir {:type :dir}]]
+                 [:link {:type :sym-link, :link-to "/my/path/to"}]]
+                [:hard-link {:type :link, :link-to "/my/path/to/file"}]])]
+      (are [result path] (= result (nio2/dir? (nio2/path fs path)))
+                         true "/my"
+                         true "/my/path"
+                         true "/my/path/to"
+                         true "/my/path/empty-dir")
+      (is (nio2/file? (nio2/path fs "/my/path/to/file")))
+      (is (nio2/file? (nio2/path fs "/hard-link")))
+      (is (nio2/sym-link? (nio2/path fs "/my/link")))
+      (is (= (nio2/read-sym-link (nio2/path fs "/my/link")) (nio2/path fs "/my/path/to")))
+      (is (= (nio2/read-all-lines (nio2/path fs "/my/path/to/has-content"))
              ["line 1"
               "line 2"])))))
 
@@ -262,13 +268,13 @@
                  [[:dir1
                    [:dir2
                     [:file1]]]])]
-        (is (nil? (paths/create-file (paths/path fs "/dir1/dir2/file1"))))))
+        (is (nil? (nio2/create-file (nio2/path fs "/dir1/dir2/file1"))))))
     (testing "creating a file for a path that exists and isn't a file returns nil and doesn't throw exception"
       (let [fs (jimfs/create-fs
                  [[:dir1
                    [:dir2
                     [:file1]]]])]
-        (is (nil? (paths/create-file (paths/path fs "/dir1/dir2"))))))))
+        (is (nil? (nio2/create-file (nio2/path fs "/dir1/dir2"))))))))
 
 (deftest create-dir
   (testing "creating a dir that already exists returns nil"
@@ -277,10 +283,10 @@
                  [[:dir1
                    [:dir2
                     [:file1]]]])]
-        (is (nil? (paths/create-dir (paths/path fs "/dir1/dir2")))))))
+        (is (nil? (nio2/create-dir (nio2/path fs "/dir1/dir2")))))))
   (testing "creating a dir for a path that exists and isn't a dir returns nil and doesn't throw exception"
     (let [fs (jimfs/create-fs
                [[:dir1
                  [:dir2
                   [:file1]]]])]
-      (is (nil? (paths/create-dir (paths/path fs "/dir1/dir2/file1")))))))
+      (is (nil? (nio2/create-dir (nio2/path fs "/dir1/dir2/file1")))))))
