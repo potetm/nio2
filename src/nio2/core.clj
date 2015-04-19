@@ -45,6 +45,15 @@
   (-path [this paths]
     (.getPath *fs* this (varargs-array String paths))))
 
+(extend-type Path
+  IPath
+  (-path [this paths]
+    (if (seq paths)
+      (.getPath (.getFileSystem this)
+                (str this)
+                (varargs-array String (map str paths)))
+      this)))
+
 (defn ^Path path [& [fs-or-path-str & paths]]
   (-path fs-or-path-str paths))
 
@@ -60,7 +69,7 @@
 (defn ^FileSystem get-fs [^Path path]
   (.getFileSystem path))
 
-(defn ^FileSystem join [^Path parent ^Path child]
+(defn ^Path join [^Path parent ^Path child]
   (.resolve parent child))
 
 (defn ^Path normalize [^Path path]

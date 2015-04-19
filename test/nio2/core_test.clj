@@ -22,7 +22,18 @@
         (is (instance? Path (nio2/path "path")))))
     (testing "resolving from *fs* works with multiple arguments"
       (with-bindings {#'nio2.core/*fs* fs}
-        (is (instance? Path (nio2/path "path" "to" "file")))))))
+        (is (instance? Path (nio2/path "path" "to" "file")))))
+    (testing "path from path"
+      (is (= (nio2/path fs "path/to/file")
+             (nio2/path (nio2/path fs "path/to/file")))))
+    (testing "appending to path"
+      (is (= (nio2/path fs "path/to/file")
+             (nio2/path (nio2/path fs "path") "to/file"))))
+    (testing "appending to path with more paths"
+      (is (= (nio2/path fs "path/to/file")
+             (nio2/path (nio2/path fs "path")
+                        (nio2/path fs "to")
+                        (nio2/path fs "file")))))))
 
 (deftest absolute
   (testing
