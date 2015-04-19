@@ -1,6 +1,13 @@
 # nio2
 A lightweight wrapper around the `java.nio.file` package.
 
+# Using
+With Lein:
+
+```clojure
+[nio2 "0.2.1"]
+```
+
 # Motivation
 There are two primary reasons this library was created:
 1. To allow clojure developers to take advantage of NIO2 features
