@@ -11,6 +11,7 @@
                           LinkOption
                           FileAlreadyExistsException
                           Files
+                          FileStore
                           FileSystem
                           FileSystems
                           OpenOption
@@ -41,109 +42,111 @@
 (def ^{:dynamic true :tag FileSystem} *fs*)
 
 (defprotocol ^:private IPath
-  (-path ^Path [this paths]))
+  (-path ^java.nio.file.Path [this paths]))
 
 (extend-type FileSystem
   IPath
-  (-path ^Path [this [path & paths]]
+  (-path ^java.nio.file.Path [this [path & paths]]
     (let [^FileSystem this this]
       (.getPath this path (varargs-array String paths)))))
 
 (extend-type String
   IPath
-  (-path ^Path [this paths]
+  (-path ^java.nio.file.Path [this paths]
     (.getPath *fs* this (varargs-array String paths))))
 
 (extend-type Path
   IPath
-  (-path ^Path [this paths]
+  (-path ^java.nio.file.Path [this paths]
     (if (seq paths)
       (.getPath (.getFileSystem this)
                 (str this)
                 (varargs-array String (map str paths)))
       this)))
 
-(defn path ^Path [& [fs-or-path-str & paths]]
+(defn path ^java.nio.file.Path [& [fs-or-path-str & paths]]
   (-path fs-or-path-str paths))
 
-(defn ^Path absolute [^Path path]
+(defn absolute ^java.nio.file.Path [^Path path]
   (.toAbsolutePath path))
 
-(defn ^File file [^Path path]
+(defn file ^java.io.File [^Path path]
   (.toFile path))
 
-(defn ^Path filename [^Path path]
+(defn filename ^java.nio.file.Path [^Path path]
   (.getFileName path))
 
-(defn ^FileSystem get-fs [^Path path]
+(defn get-fs ^java.nio.file.FileSystem [^Path path]
   (.getFileSystem path))
 
-(defn ^Path join [^Path parent ^Path child]
+(defn join ^java.nio.file.Path [^Path parent ^Path child]
   (.resolve parent child))
 
-(defn ^Path normalize [^Path path]
+(defn normalize ^java.nio.file.Path [^Path path]
   (.normalize path))
 
-(defn ^Path parent [^Path path]
+(defn parent ^java.nio.file.Path [^Path path]
   (.getParent path))
 
-(defn relativize [^Path from ^Path to]
+(defn relativize ^java.nio.file.Path [^Path from ^Path to]
   (.relativize from to))
 
 (def resolve join)
 
-(defn ^Path root [^Path path]
+(defn root ^java.nio.file.Path [^Path path]
   (.getRoot path))
 
 (defn split [^Path path]
   (iterator-seq (.iterator path)))
 
-(defn ^URI uri [^Path path]
+(defn uri ^java.net.URI [^Path path]
   (.toUri path))
 
 ;; QUERY
 
-(defn ^Boolean absolute? [^Path path]
+(defn absolute? ^Boolean [^Path path]
   (.isAbsolute path))
 
-(defn ^Boolean executable? [^Path path]
+(defn executable? ^Boolean [^Path path]
   (Files/isExecutable path))
 
-(defn ^Boolean exists? [^Path path & link-options]
+(defn exists? ^Boolean [^Path path & link-options]
   (Files/exists path (link-opts link-options)))
 
-(defn ^Boolean file? [^Path path & link-options]
+(defn file? ^Boolean [^Path path & link-options]
   (Files/isRegularFile path (link-opts link-options)))
 
-(defn ^Boolean dir? [^Path path & link-options]
+(defn dir? ^Boolean [^Path path & link-options]
   (Files/isDirectory path (link-opts link-options)))
 
-(defn ^Boolean hidden? [^Path path]
+(defn hidden? ^Boolean [^Path path]
   (Files/isHidden path))
 
-(defn ^Boolean readable? [^Path path]
+(defn readable? ^Boolean [^Path path]
   (Files/isReadable path))
 
-(defn ^Boolean same-file? [^Path path1 ^Path path2]
+(defn same-file? ^Boolean [^Path path1 ^Path path2]
   (Files/isSameFile path1 path2))
 
-(defn ^Boolean sym-link? [^Path path]
+(defn sym-link? ^Boolean [^Path path]
   (Files/isSymbolicLink path))
 
-(defn ^Boolean writable? [^Path path]
+(defn writable? ^Boolean [^Path path]
   (Files/isWritable path))
 
 ;; INTERACT
 
-(defn ^DirectoryStream dir-stream
+(defn dir-stream
   "Lazily list the contents of a directory.
 
    Returns a new DirectoryStream. Should be used inside a with-open block.
 
    Because Streams implement Iterable, it can basically be used as a clojure seq."
-  ([^Path path]
+  (^java.nio.file.DirectoryStream
+  [^Path path]
    (Files/newDirectoryStream path))
-  ([^Path path ^String glob]
+  (^java.nio.file.DirectoryStream
+  [^Path path ^String glob]
    (Files/newDirectoryStream path glob)))
 
 (defn attr [^Path path ^String attr & link-options]
@@ -153,7 +156,7 @@
   (let [^"[Ljava.nio.file.LinkOption;" link-options (link-opts link-options)]
     (Files/readAttributes path attributes link-options)))
 
-(defn file-store [^Path path]
+(defn file-store ^java.nio.file.FileStore [^Path path]
   (Files/getFileStore path))
 
 (defn last-modified
@@ -223,15 +226,15 @@
 ;; IO
 
 (defn buffered-reader
-  (^BufferedReader [^Path path]
+  (^java.io.BufferedReader [^Path path]
    (buffered-reader path StandardCharsets/UTF_8))
-  (^BufferedReader [^Path path ^Charset charset]
+  (^java.io.BufferedReader [^Path path ^Charset charset]
    (Files/newBufferedReader path charset)))
 
 (defn buffered-writer
-  (^BufferedWriter [^Path path]
+  (^java.io.BufferedWriter [^Path path]
    (buffered-writer path StandardCharsets/UTF_8))
-  (^BufferedWriter [^Path path ^Charset charset & open-options]
+  (^java.io.BufferedWriter [^Path path ^Charset charset & open-options]
    (Files/newBufferedWriter path charset (open-opts open-options))))
 
 (defn byte-channel [^Path path open-options & file-attributes]

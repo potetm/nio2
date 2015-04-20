@@ -1,5 +1,5 @@
 (defproject
-  nio2 "0.2.2"
+  nio2 "0.2.3"
   :description "A clojure wrapper around java.nio.file package"
   :url "http://github.com/potetm/nio2"
   :license {:name "Eclipse Public License"
