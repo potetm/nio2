@@ -1,6 +1,10 @@
 (ns nio2.core
   (:refer-clojure :exclude [resolve])
-  (:import [java.io File InputStream OutputStream]
+  (:import [java.io BufferedReader
+                    BufferedWriter
+                    File
+                    InputStream
+                    OutputStream]
            [java.net URI]
            [java.nio.file CopyOption
                           DirectoryStream
@@ -11,9 +15,15 @@
                           FileSystems
                           OpenOption
                           Path]
-           [java.nio.file.attribute FileAttribute FileTime PosixFilePermissions]
-           [java.nio.charset Charset StandardCharsets]
-           [java.util Collection HashSet Set]))
+           [java.nio.file.attribute FileAttribute
+                                    FileTime
+                                    PosixFilePermissions]
+           [java.nio.charset Charset
+                             StandardCharsets]
+           [java.util Collection
+                      HashSet
+                      List
+                      Set]))
 
 (defn ^FileSystem default-fs []
   (FileSystems/getDefault))
@@ -28,33 +38,32 @@
 
 ;; Path fns
 
-(def ^{:dynamic true
-       :tag FileSystem} *fs*)
+(def ^{:dynamic true :tag FileSystem} *fs*)
 
 (defprotocol ^:private IPath
-  (-path [this paths]))
+  (-path ^Path [this paths]))
 
 (extend-type FileSystem
   IPath
-  (-path [this [path & paths]]
+  (-path ^Path [this [path & paths]]
     (let [^FileSystem this this]
       (.getPath this path (varargs-array String paths)))))
 
 (extend-type String
   IPath
-  (-path [this paths]
+  (-path ^Path [this paths]
     (.getPath *fs* this (varargs-array String paths))))
 
 (extend-type Path
   IPath
-  (-path [this paths]
+  (-path ^Path [this paths]
     (if (seq paths)
       (.getPath (.getFileSystem this)
                 (str this)
                 (varargs-array String (map str paths)))
       this)))
 
-(defn ^Path path [& [fs-or-path-str & paths]]
+(defn path ^Path [& [fs-or-path-str & paths]]
   (-path fs-or-path-str paths))
 
 (defn ^Path absolute [^Path path]
@@ -214,15 +223,15 @@
 ;; IO
 
 (defn buffered-reader
-  ([^Path path]
+  (^BufferedReader [^Path path]
    (buffered-reader path StandardCharsets/UTF_8))
-  ([^Path path ^Charset charset]
+  (^BufferedReader [^Path path ^Charset charset]
    (Files/newBufferedReader path charset)))
 
 (defn buffered-writer
-  ([^Path path]
+  (^BufferedWriter [^Path path]
    (buffered-writer path StandardCharsets/UTF_8))
-  ([^Path path ^Charset charset & open-options]
+  (^BufferedWriter [^Path path ^Charset charset & open-options]
    (Files/newBufferedWriter path charset (open-opts open-options))))
 
 (defn byte-channel [^Path path open-options & file-attributes]
@@ -246,7 +255,7 @@
   (Files/readAllBytes path))
 
 (defn read-all-lines
-  ([^Path path]
+  (^List [^Path path]
    (read-all-lines path StandardCharsets/UTF_8))
   ([^Path path ^Charset charset]
    (Files/readAllLines path charset)))
@@ -256,9 +265,9 @@
     (Files/write path bytes open-options)))
 
 (defn write-lines
-  ([^Path path lines]
+  (^Path [^Path path lines]
    (write-lines path lines StandardCharsets/UTF_8))
-  ([^Path path lines ^Charset charset & open-options]
+  (^Path [^Path path lines ^Charset charset & open-options]
    (Files/write path lines charset (open-opts open-options))))
 
 ;; UTILS
